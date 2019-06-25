@@ -2,41 +2,27 @@
 import re
 import os
 import pickle
+import argparse
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from modelE2D import E2D
 
-abspath = os.path.abspath(__file__)
-dirname = os.path.dirname(abspath)
-os.chdir(dirname)
-'''
-To Do :
-    - save model
-    - predict
-    - argparse
-    - 
-'''
 
-
-
-def train(data, embedding, vocab):
+def train(args, data, embedding, vocab):
 
     print("Train function Started :")
     source_data_idx, target_data_idx = data[0], data[1]
     encoder_embedding, decoder_embedding = embedding[0], embedding[1]
     source_vocab, target_vocab = vocab[0], vocab[1]
 
-    # print("Data  : ", source_data_idx)
-    # print("Embedding : ", encoder_embedding)
-    # print("Vocab : ", source_vocab)
-
-    BATCH_SIZE = 2
-    NUM_EPOCHS = 10
-    NUM_UNITS = 256
+    BATCH_SIZE = args.batch_size
+    NUM_EPOCHS = args.epochs
+    NUM_UNITS = args.num_units
     SOURCE_VOCAB_SIZE = len(source_vocab)
     TARGET_VOCAB_SIZE = len(target_vocab)
-    HIDDEN_LAYER_SIZE_ENCODER = 256
+    HIDDEN_LAYER_SIZE_ENCODER = args.num_hidden_units
+    NUM_UNITS_ATTENTATION = args.num_atten_units
 
     encoder_train_inp = tf.placeholder(tf.int32, shape=[None, None], name='inputs_encoder')
     decoder_train_inp = tf.placeholder(tf.int32, shape=[None, None], name='dec_train_inputs')
@@ -44,10 +30,6 @@ def train(data, embedding, vocab):
 
     encoder_sequence_length = tf.placeholder(tf.int32, shape=[None, ])
     decoder_sequence_length = tf.placeholder(tf.int32, shape=[None, ])
-
-    # processed_input_encoder = tf.transpose(enc_emb, perm=[1, 0, 2])
-    # initial_hidden_encoder = tf.zeros([BATCH_SIZE, HIDDEN_LAYER_SIZE_ENCODER])
-    # projection_layer = tf.layers.Dense(TARGET_VOCAB_SIZE, use_bias=False)
 
     dataset = tf.data.Dataset.from_tensor_slices((encoder_train_inp, decoder_train_inp)).batch(BATCH_SIZE).repeat()
     iterator = dataset.make_initializable_iterator()
@@ -59,7 +41,8 @@ def train(data, embedding, vocab):
         'TARGET_VOCAB_SIZE': TARGET_VOCAB_SIZE,
         'SOURCE_VOCAB_SIZE': SOURCE_VOCAB_SIZE,
         'HIDDEN_LAYER_SIZE_ENCODER': HIDDEN_LAYER_SIZE_ENCODER,
-        'NUM_UNITS': NUM_UNITS
+        'NUM_UNITS': NUM_UNITS,
+        'NUM_UNITS_ATTENTATION': NUM_UNITS_ATTENTATION
     }
 
     data_dictionary = {
@@ -101,27 +84,29 @@ def train(data, embedding, vocab):
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('-d', '--data_dir', type=str, default='mnist_data/', help='Directory for storing input data')
-    # parser.add_argument('-c', '--ckpt_dir', type=str, default='ckpts/', help='Directory for parameter checkpoints')
-    # parser.add_argument('-l', '--load_params', dest='load_params', action='store_true', help='Restore training from previous model checkpoint?')
-    # parser.add_argument("-o", "--output",  type=str, default='prediction.csv', help='Prediction filepath')
-    # parser.add_argument('-e', '--epochs', type=int, default=30, help='How many epochs to run in total?')
-    # parser.add_argument('-b', '--batch_size', type=int, default=50, help='Batch size during training per GPU')
-    # parser.add_argument('-v', '--val_size', type=int, default=5000)
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d1', '--idx_data_dir', type=str, default='indexed_data/', help='Directory where indexed input data resides')
+    parser.add_argument('-d2', '--emb_data_dir', type=str, default='embed_data/', help='Directory where embedding data resides')
+    parser.add_argument('-d3', '--voc_data_dir', type=str, default='vocab_data/', help='Directory where vocabulary data resides')
+
+    parser.add_argument('-c', '--ckpt_dir', type=str, default='ckpts/', help='Directory for parameter checkpoints')
+    parser.add_argument('-l', '--load_params', dest='load_params', action='store_true', help='Restore training from previous model checkpoint?')
+    parser.add_argument("-o", "--output",  type=str, default='prediction.csv', help='Prediction filepath')
+    parser.add_argument('-e', '--epochs', type=int, default=3000, help='Number of epochs to run')
+    parser.add_argument('-b', '--batch_size', type=int, default=5, help='Batch size during training')
+    parser.add_argument('-v', '--val_size', type=int, default=5000)
+    parser.add_argument('-u', '--num_units', type=int, default=256, help='Number of units')
+    parser.add_argument('-h', '--num_hidden_units', type=int, default=256, help='Number of hidden units')
+    parser.add_argument('-u', '--num_atten_units', type=int, default=256, help='Number of attention units')
+
+    args = parser.parse_args()
 
     # pretty print args
     # print('input args:\n', json.dumps(vars(args), indent=4, separators=(',',':')))
 
-    # data = mnist_data.read_data_sets(args.data_dir, one_hot=True, reshape=False, validation_size=args.val_size)
-    # data = input_data.read_data_sets(args.data_dir, one_hot=True, reshape=False, validation_size=args.val_size)
-
     # if not os.path.exists(args.ckpt_dir):
     #     os.makedirs(args.ckpt_dir)
     print("Main code Started :")
-    # kan_emb_path = "C:/Users/shashidhara.kc/Documents/Documents_Nalakku/kalli/Learning TensorFlow Itay Lieder/Learning-TensorFlow-master/MyExperiments/kan_embedding.npy"
-    # eng_emb_path = "C:/Users/shashidhara.kc/Documents/Documents_Nalakku/kalli/Learning TensorFlow Itay Lieder/Learning-TensorFlow-master/MyExperiments/eng_embedding.npy"
     kan_embedding = np.load("../kan_embedding.npy")
     eng_embedding = np.load("../eng_embedding.npy")
     embedding_list = list([kan_embedding, eng_embedding])
@@ -131,7 +116,6 @@ if __name__ == "__main__":
     source_data_dictionary_load = pickle.load(open("../sourceVocabDict.p", "rb"))
     target_data_dictionary_load = pickle.load(open("../targetVocabDict.p", "rb"))
     vocab_list = list([source_data_dictionary_load, target_data_dictionary_load])
-
     print("Call main code Started :")
 
-    train(data_list, embedding_list, vocab_list)
+    train(args, data_list, embedding_list, vocab_list)
